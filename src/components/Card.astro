@@ -2,7 +2,7 @@
 import type { HTMLAttributes } from 'astro/types';
 
 interface Props extends HTMLAttributes<'div'> {
-    /** HTML element to render the panel as (e.g. 'div', 'section', 'article'). */
+    /** HTML element to render the panel as; defaults to a div. */
     as?: 'div' | 'section' | 'article' | 'aside';
 }
 

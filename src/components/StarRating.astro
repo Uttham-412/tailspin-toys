@@ -2,17 +2,23 @@
 import { clampRating, formatStarRating } from '../lib/ratings';
 
 interface Props {
+    /** Rating to display; null renders the explicit not-yet-rated state. */
     rating: number | null;
 }
 
 const { rating } = Astro.props;
 ---
 
-{rating !== null && (
-    <div class="flex items-center">
-        <span class="bg-blue-500/20 text-blue-400 text-sm px-3 py-1 rounded-full" data-testid="game-rating">
-            <span class="text-yellow-400">{formatStarRating(rating)}</span>
-            {clampRating(rating).toFixed(1)}
-        </span>
-    </div>
-)}
+<div class="flex items-center">
+    <span class="bg-blue-500/20 text-blue-400 text-sm px-3 py-1 rounded-full" data-testid="game-rating">
+        {rating === null ? (
+            'No rating yet'
+        ) : (
+            <>
+                <span class="text-yellow-400" aria-hidden="true">{formatStarRating(rating)}</span>
+                <span class="sr-only">{clampRating(rating).toFixed(1)} out of 5</span>
+                <span aria-hidden="true">{clampRating(rating).toFixed(1)}</span>
+            </>
+        )}
+    </span>
+</div>

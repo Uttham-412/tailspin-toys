@@ -8,12 +8,17 @@ import {
     getGameById,
     matchesGameQuery,
     filterGamesByQuery,
+    filterGamesByCategoryAndPublisher,
 } from './games';
 
 async function seedGames(db: Database, count: number): Promise<void> {
-    const [category] = await db
+    const [strategyCategory] = await db
         .insert(categories)
         .values({ name: 'Strategy', description: 'cat' })
+        .returning({ id: categories.id });
+    const [puzzleCategory] = await db
+        .insert(categories)
+        .values({ name: 'Puzzle', description: 'cat' })
         .returning({ id: categories.id });
     const [publisher] = await db
         .insert(publishers)
@@ -26,7 +31,7 @@ async function seedGames(db: Database, count: number): Promise<void> {
             title: `Game ${String(i).padStart(2, '0')}`,
             description: `Description ${i}`,
             starRating: 4.2,
-            categoryId: category.id,
+            categoryId: i === count ? puzzleCategory.id : strategyCategory.id,
             publisherId: publisher.id,
         });
     }
@@ -77,5 +82,16 @@ describe('games data-access helpers', () => {
         expect(matchesGameQuery(game, 'desc 1')).toBe(true);
         expect(matchesGameQuery(game, 'totally missing')).toBe(false);
         expect(filterGamesByQuery(gamesList, 'gme 01')).toHaveLength(1);
+    });
+
+    it('filters by one or more categories and an optional publisher', async () => {
+        await seedGames(db, 3);
+        const gamesList = await getAllGames(db);
+
+        expect(filterGamesByCategoryAndPublisher(gamesList, ['Puzzle'])).toHaveLength(1);
+        expect(filterGamesByCategoryAndPublisher(gamesList, ['Strategy', 'Puzzle'])).toHaveLength(3);
+        expect(filterGamesByCategoryAndPublisher(gamesList, [], 'Pub One')).toHaveLength(3);
+        expect(filterGamesByCategoryAndPublisher(gamesList, ['Puzzle'], 'Pub One')).toHaveLength(1);
+        expect(filterGamesByCategoryAndPublisher(gamesList, ['Puzzle'], 'Missing Publisher')).toHaveLength(0);
     });
 });

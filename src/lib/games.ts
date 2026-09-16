@@ -75,6 +75,13 @@ function hasFuzzySubsequence(query: string, value: string): boolean {
     return false;
 }
 
+/**
+ * Determine whether a game matches a normalized title, metadata, or description query.
+ *
+ * @param game - Game to inspect.
+ * @param rawQuery - User-entered search text.
+ * @returns Whether the game matches the query.
+ */
 export function matchesGameQuery(game: Game, rawQuery: string): boolean {
     const query = normalizeSearchText(rawQuery);
     if (!query) {
@@ -106,23 +113,69 @@ export function matchesGameQuery(game: Game, rawQuery: string): boolean {
     return queryTokens.every((token) => values.some((value) => hasFuzzySubsequence(token, value)));
 }
 
+/**
+ * Filter games using the same matching rules as the catalog search.
+ *
+ * @param gamesList - Games to filter.
+ * @param rawQuery - User-entered search text.
+ * @returns Matching games in their original order.
+ */
 export function filterGamesByQuery(gamesList: Game[], rawQuery: string): Game[] {
     return gamesList.filter((game) => matchesGameQuery(game, rawQuery));
 }
 
-/** All games ordered by title. */
+/**
+ * Filter games by selected categories and an optional publisher.
+ *
+ * @param gamesList - Games to filter.
+ * @param selectedCategories - Category names; games match any selected category.
+ * @param selectedPublisher - Publisher name, or an empty string for all publishers.
+ * @returns Games matching every active filter in their original order.
+ */
+export function filterGamesByCategoryAndPublisher(
+    gamesList: Game[],
+    selectedCategories: string[],
+    selectedPublisher: string = '',
+): Game[] {
+    return gamesList.filter((game) => {
+        const categoryMatches =
+            selectedCategories.length === 0 ||
+            (game.category !== null && selectedCategories.includes(game.category.name));
+        const publisherMatches =
+            !selectedPublisher || game.publisher?.name === selectedPublisher;
+        return categoryMatches && publisherMatches;
+    });
+}
+
+/**
+ * Load all games with their category and publisher relationships.
+ *
+ * @param db - Injectable Drizzle database client.
+ * @returns All games ordered by title.
+ */
 export async function getAllGames(db: Database): Promise<Game[]> {
     const rows = await baseGamesQuery(db).orderBy(asc(games.title));
     return rows.map(mapGame);
 }
 
-/** All game ids ordered by title. */
+/**
+ * Load all game IDs in catalog display order.
+ *
+ * @param db - Injectable Drizzle database client.
+ * @returns Game IDs ordered by title.
+ */
 export async function getAllGameIds(db: Database): Promise<number[]> {
     const rows = await db.select({ id: games.id }).from(games).orderBy(asc(games.title));
     return rows.map((row) => row.id);
 }
 
-/** A single game by id, or null when it does not exist. */
+/**
+ * Load one game with its category and publisher relationships.
+ *
+ * @param db - Injectable Drizzle database client.
+ * @param id - Game ID to look up.
+ * @returns The matching game or null when it does not exist.
+ */
 export async function getGameById(db: Database, id: number): Promise<Game | null> {
     const row = await baseGamesQuery(db).where(eq(games.id, id)).get();
     return row ? mapGame(row) : null;

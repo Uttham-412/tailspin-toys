@@ -59,7 +59,13 @@ function createRemoteCallback(sqlite: DatabaseSync): AsyncRemoteCallback {
     };
 }
 
-/** Run generated migration statements atomically through Node's SQLite driver. */
+/**
+ * Run generated migration statements atomically through Node's SQLite driver.
+ *
+ * @param sqlite - Synchronous SQLite connection.
+ * @param queries - Migration statements to execute in order.
+ * @returns Nothing; throws and rolls back when a statement fails.
+ */
 export function executeMigrationQueries(sqlite: DatabaseSync, queries: string[]): void {
     sqlite.exec('BEGIN');
     try {
@@ -73,12 +79,22 @@ export function executeMigrationQueries(sqlite: DatabaseSync, queries: string[])
     }
 }
 
-/** Create a Drizzle client for the given local SQLite connection URL. */
+/**
+ * Create a Drizzle client for a local SQLite connection URL.
+ *
+ * @param url - Local file URL or `:memory:`; defaults to `DATABASE_URL`.
+ * @returns Drizzle database client.
+ */
 export function createDatabase(url: string = process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL): Database {
     return createDatabaseConnection(url).db;
 }
 
-/** Create the Drizzle client and its Node SQLite connection for migration workflows. */
+/**
+ * Create the Drizzle client and its Node SQLite connection for migrations.
+ *
+ * @param url - Local file URL or `:memory:`; defaults to `DATABASE_URL`.
+ * @returns Drizzle client and underlying SQLite connection.
+ */
 export function createDatabaseConnection(
     url: string = process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
 ): DatabaseConnection {
@@ -88,7 +104,11 @@ export function createDatabaseConnection(
     return { db, sqlite };
 }
 
-/** Shared singleton database client used by pages at build time. */
+/**
+ * Return the shared singleton database client used by pages at build time.
+ *
+ * @returns Cached Drizzle database client.
+ */
 export function getDatabase(): Database {
     if (!cachedDb) {
         cachedDb = createDatabase();

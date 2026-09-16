@@ -27,6 +27,8 @@ export default [
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
+      "curly": ["error", "multi-line"],
+      "eqeqeq": ["error", "always"],
     },
   },
 

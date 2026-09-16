@@ -9,6 +9,8 @@ import { getAllGames } from '../lib/games';
 export const prerender = true;
 
 const games = await getAllGames(getDatabase());
+const categoryNames = [...new Set(games.map((game) => game.category?.name).filter((name): name is string => Boolean(name)))].sort();
+const publisherNames = [...new Set(games.map((game) => game.publisher?.name).filter((name): name is string => Boolean(name)))].sort();
 ---
 
 <Layout title="Tailspin Toys - Crowdfunding your new favorite game!">
@@ -29,6 +31,40 @@ const games = await getAllGames(getDatabase());
         data-testid="game-search-input"
       />
       <p id="game-search-summary" class="mt-2 text-sm text-slate-300" aria-live="polite" hidden data-testid="game-search-summary"></p>
+    </div>
+
+    <div class="mb-8 rounded-xl border border-slate-700 bg-slate-800/50 p-5" data-testid="game-filters">
+      <h2 class="mb-4 text-lg font-medium text-slate-100">Filter games</h2>
+      <div class="grid gap-5 md:grid-cols-[2fr_1fr]">
+        <fieldset>
+          <legend class="mb-2 text-sm font-medium text-slate-200">Categories</legend>
+          <div class="flex flex-wrap gap-3">
+            {categoryNames.map((category) => (
+              <label class="flex items-center gap-2 text-sm text-slate-300">
+                <input
+                  type="checkbox"
+                  value={category}
+                  class="h-4 w-4 rounded border-slate-600 bg-slate-800 text-blue-500 focus:ring-2 focus:ring-blue-500"
+                  data-testid={`category-filter-${category}`}
+                />
+                {category}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <div>
+          <label for="publisher-filter" class="mb-2 block text-sm font-medium text-slate-200">Publisher</label>
+          <select
+            id="publisher-filter"
+            class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            data-testid="publisher-filter"
+          >
+            <option value="">All publishers</option>
+            {publisherNames.map((publisher) => <option value={publisher}>{publisher}</option>)}
+          </select>
+        </div>
+      </div>
+      <p id="game-filter-summary" class="mt-3 text-sm text-slate-300" aria-live="polite" data-testid="game-filter-summary"></p>
     </div>
 
     <div>
@@ -55,6 +91,9 @@ const games = await getAllGames(getDatabase());
   const searchInput = document.getElementById('game-search-input') as HTMLInputElement | null;
   const searchSummary = document.getElementById('game-search-summary') as HTMLParagraphElement | null;
   const emptyState = document.getElementById('game-search-empty-state') as HTMLElement | null;
+  const filterSummary = document.getElementById('game-filter-summary') as HTMLParagraphElement | null;
+  const publisherFilter = document.getElementById('publisher-filter') as HTMLSelectElement | null;
+  const categoryFilters = Array.from(document.querySelectorAll<HTMLInputElement>('[data-testid^="category-filter-"]'));
   const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-testid="game-card"]'));
 
   function normalizeSearchText(value: string): string {
@@ -110,10 +149,17 @@ const games = await getAllGames(getDatabase());
 
   function updateGameList() {
     const query = searchInput ? searchInput.value : '';
+    const selectedCategories = categoryFilters.filter((filter) => filter.checked).map((filter) => filter.value);
+    const selectedPublisher = publisherFilter?.value ?? '';
     let visibleCount = 0;
 
     cards.forEach((card) => {
-      const matches = matchesQuery(query, card.getAttribute('data-search-text') ?? '');
+      const matchesSearch = matchesQuery(query, card.getAttribute('data-search-text') ?? '');
+      const category = card.getAttribute('data-game-category') ?? '';
+      const publisher = card.getAttribute('data-game-publisher') ?? '';
+      const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(category);
+      const matchesPublisher = !selectedPublisher || selectedPublisher === publisher;
+      const matches = matchesSearch && matchesCategory && matchesPublisher;
       const shouldDisplay = matches;
       card.hidden = !shouldDisplay;
       if (shouldDisplay) {
@@ -132,12 +178,21 @@ const games = await getAllGames(getDatabase());
     }
 
     if (emptyState) {
-      emptyState.hidden = visibleCount > 0 || !query.trim();
+      emptyState.hidden = visibleCount > 0 || (!query.trim() && selectedCategories.length === 0 && !selectedPublisher);
+    }
+
+    if (filterSummary) {
+      const activeFilters = selectedCategories.length + (selectedPublisher ? 1 : 0);
+      filterSummary.textContent = activeFilters
+        ? `${visibleCount} game${visibleCount === 1 ? '' : 's'} match${visibleCount === 1 ? 'es' : ''} the selected filters.`
+        : '';
     }
   }
 
   if (searchInput) {
     searchInput.addEventListener('input', updateGameList);
-    updateGameList();
   }
+  categoryFilters.forEach((filter) => filter.addEventListener('change', updateGameList));
+  publisherFilter?.addEventListener('change', updateGameList);
+  updateGameList();
 </script>
