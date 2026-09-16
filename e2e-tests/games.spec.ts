@@ -18,6 +18,38 @@ test.describe('Game Listing and Navigation', () => {
     });
   });
 
+  test('should combine category and publisher filters', async ({ page }) => {
+    await test.step('Navigate to homepage and read the first game metadata', async () => {
+      await page.goto('/');
+      await expect(page.getByTestId('game-filters')).toBeVisible();
+    });
+
+    const firstCard = page.getByTestId('game-card').first();
+    const category = await firstCard.getAttribute('data-game-category');
+    const publisher = await firstCard.getAttribute('data-game-publisher');
+    expect(category).toBeTruthy();
+    expect(publisher).toBeTruthy();
+
+    await test.step('Apply both filters', async () => {
+      await page.getByTestId(`category-filter-${category}`).check();
+      await page.getByTestId('publisher-filter').selectOption({ label: publisher as string });
+    });
+
+    await test.step('Verify the combined filter result', async () => {
+      await expect(page.getByTestId('game-filter-summary')).toContainText('match');
+      expect(await page.locator('[data-testid="game-card"]:visible').count()).toBeGreaterThan(0);
+      await expect(page.locator('[data-testid="game-card"]:visible').first()).toHaveAttribute('data-game-category', category as string);
+      await expect(page.locator('[data-testid="game-card"]:visible').first()).toHaveAttribute('data-game-publisher', publisher as string);
+    });
+  });
+
+  test('should display a star rating on each game card', async ({ page }) => {
+    await page.goto('/');
+    const firstCard = page.getByTestId('game-card').first();
+    await expect(firstCard.getByTestId('game-rating')).toBeVisible();
+    await expect(firstCard.getByTestId('game-rating')).not.toBeEmpty();
+  });
+
   test('should display games with titles on index page', async ({ page }) => {
     await test.step('Navigate to homepage', async () => {
       await page.goto('/');
