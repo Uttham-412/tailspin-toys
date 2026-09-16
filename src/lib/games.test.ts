@@ -6,6 +6,8 @@ import {
     getAllGames,
     getAllGameIds,
     getGameById,
+    matchesGameQuery,
+    filterGamesByQuery,
 } from './games';
 
 async function seedGames(db: Database, count: number): Promise<void> {
@@ -62,5 +64,18 @@ describe('games data-access helpers', () => {
     it('returns null for a non-existent game', async () => {
         await seedGames(db, 2);
         expect(await getGameById(db, 99999)).toBeNull();
+    });
+
+    it('matches fuzzy search queries across titles, categories, publishers, and descriptions', async () => {
+        await seedGames(db, 3);
+        const gamesList = await getAllGames(db);
+        const game = gamesList[0];
+
+        expect(matchesGameQuery(game, 'gme 01')).toBe(true);
+        expect(matchesGameQuery(game, 'strat')).toBe(true);
+        expect(matchesGameQuery(game, 'pub')).toBe(true);
+        expect(matchesGameQuery(game, 'desc 1')).toBe(true);
+        expect(matchesGameQuery(game, 'totally missing')).toBe(false);
+        expect(filterGamesByQuery(gamesList, 'gme 01')).toHaveLength(1);
     });
 });

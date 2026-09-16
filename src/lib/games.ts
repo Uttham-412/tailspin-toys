@@ -50,6 +50,66 @@ function baseGamesQuery(db: Database) {
         .leftJoin(publishers, eq(games.publisherId, publishers.id));
 }
 
+function normalizeSearchText(value: string): string {
+    return value
+        .toLocaleLowerCase()
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function hasFuzzySubsequence(query: string, value: string): boolean {
+    if (query.length === 0) return true;
+    if (query.length > value.length) return false;
+
+    let queryIndex = 0;
+    for (const character of value) {
+        if (character === query[queryIndex]) {
+            queryIndex += 1;
+            if (queryIndex === query.length) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+export function matchesGameQuery(game: Game, rawQuery: string): boolean {
+    const query = normalizeSearchText(rawQuery);
+    if (!query) {
+        return true;
+    }
+
+    const searchText = [
+        game.title,
+        game.category?.name ?? '',
+        game.publisher?.name ?? '',
+        game.description,
+    ].join(' ');
+    const normalizedSearchText = normalizeSearchText(searchText);
+
+    if (normalizedSearchText.includes(query)) {
+        return true;
+    }
+
+    const queryTokens = query.split(/\s+/).filter(Boolean);
+    if (queryTokens.length === 0) {
+        return true;
+    }
+
+    const values = normalizedSearchText.split(/\s+/).filter(Boolean);
+    if (queryTokens.every((token) => values.some((value) => value.includes(token)))) {
+        return true;
+    }
+
+    return queryTokens.every((token) => values.some((value) => hasFuzzySubsequence(token, value)));
+}
+
+export function filterGamesByQuery(gamesList: Game[], rawQuery: string): Game[] {
+    return gamesList.filter((game) => matchesGameQuery(game, rawQuery));
+}
+
 /** All games ordered by title. */
 export async function getAllGames(db: Database): Promise<Game[]> {
     const rows = await baseGamesQuery(db).orderBy(asc(games.title));

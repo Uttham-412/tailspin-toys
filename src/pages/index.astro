@@ -18,16 +18,126 @@ const games = await getAllGames(getDatabase());
       subtitle="Find your next game! And maybe even back one! Explore our collection!"
     />
 
+    <div class="mb-8" role="search">
+      <label for="game-search-input" class="mb-2 block text-sm font-medium text-slate-200">Search games</label>
+      <input
+        id="game-search-input"
+        type="search"
+        autocomplete="off"
+        placeholder="Search by title, genre, publisher, or keyword"
+        class="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-slate-100 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/40"
+        data-testid="game-search-input"
+      />
+      <p id="game-search-summary" class="mt-2 text-sm text-slate-300" aria-live="polite" hidden data-testid="game-search-summary"></p>
+    </div>
+
     <div>
       <h2 class="text-2xl font-medium mb-6 text-slate-100">Featured Games</h2>
 
       {games.length === 0 ? (
         <EmptyState text="No games available at the moment." />
       ) : (
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="games-grid">
-          {games.map((game) => <GameCard game={game} />)}
-        </div>
+        <>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="games-grid">
+            {games.map((game) => <GameCard game={game} />)}
+          </div>
+
+          <div id="game-search-empty-state" class="hidden" data-testid="game-search-empty-state" role="status" aria-live="polite">
+            <EmptyState text="No games match your search. Try a different title, genre, or publisher." />
+          </div>
+        </>
       )}
     </div>
   </div>
 </Layout>
+
+<script>
+  const searchInput = document.getElementById('game-search-input') as HTMLInputElement | null;
+  const searchSummary = document.getElementById('game-search-summary') as HTMLParagraphElement | null;
+  const emptyState = document.getElementById('game-search-empty-state') as HTMLElement | null;
+  const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-testid="game-card"]'));
+
+  function normalizeSearchText(value: string): string {
+    return String(value ?? '')
+      .toLocaleLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function hasFuzzySubsequence(query: string, value: string): boolean {
+    if (!query.length) return true;
+    if (query.length > value.length) return false;
+
+    let queryIndex = 0;
+    for (const character of value) {
+      if (character === query[queryIndex]) {
+        queryIndex += 1;
+        if (queryIndex === query.length) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  function matchesQuery(query: string, value: string): boolean {
+    const normalizedQuery = normalizeSearchText(query);
+    const normalizedValue = normalizeSearchText(value);
+
+    if (!normalizedQuery) {
+      return true;
+    }
+
+    if (normalizedValue.includes(normalizedQuery)) {
+      return true;
+    }
+
+    const queryTokens = normalizedQuery.split(/\s+/).filter(Boolean);
+    const valueTokens = normalizedValue.split(/\s+/).filter(Boolean);
+
+    if (queryTokens.length === 0) {
+      return true;
+    }
+
+    if (queryTokens.every((token) => valueTokens.some((valueToken) => valueToken.includes(token)))) {
+      return true;
+    }
+
+    return queryTokens.every((token) => valueTokens.some((valueToken) => hasFuzzySubsequence(token, valueToken)));
+  }
+
+  function updateGameList() {
+    const query = searchInput ? searchInput.value : '';
+    let visibleCount = 0;
+
+    cards.forEach((card) => {
+      const matches = matchesQuery(query, card.getAttribute('data-search-text') ?? '');
+      const shouldDisplay = matches;
+      card.hidden = !shouldDisplay;
+      if (shouldDisplay) {
+        visibleCount += 1;
+      }
+    });
+
+    if (searchSummary) {
+      if (!query.trim()) {
+        searchSummary.hidden = true;
+        searchSummary.textContent = '';
+      } else {
+        searchSummary.hidden = false;
+        searchSummary.textContent = `${visibleCount} game${visibleCount === 1 ? '' : 's'} match your search.`;
+      }
+    }
+
+    if (emptyState) {
+      emptyState.hidden = visibleCount > 0 || !query.trim();
+    }
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener('input', updateGameList);
+    updateGameList();
+  }
+</script>

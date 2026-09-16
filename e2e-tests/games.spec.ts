@@ -1,6 +1,23 @@
 import { test, expect, type Response } from '@playwright/test';
 
 test.describe('Game Listing and Navigation', () => {
+  test('should filter the homepage catalog with a fuzzy game search', async ({ page }) => {
+    await test.step('Navigate to homepage and open the search field', async () => {
+      await page.goto('/');
+      await expect(page.getByTestId('game-search-input')).toBeVisible();
+    });
+
+    await test.step('Apply a fuzzy search query', async () => {
+      await page.getByTestId('game-search-input').fill('server sim');
+    });
+
+    await test.step('Verify only matching cards remain visible', async () => {
+      const visibleCards = page.locator('[data-testid="game-card"]:visible');
+      await expect(page.getByTestId('game-search-summary')).toContainText('match your search');
+      await expect(visibleCards.first()).toContainText('Virtual Server Simulator');
+    });
+  });
+
   test('should display games with titles on index page', async ({ page }) => {
     await test.step('Navigate to homepage', async () => {
       await page.goto('/');
