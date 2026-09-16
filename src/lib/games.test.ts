@@ -6,10 +6,14 @@ import {
     getAllGames,
     getAllGameIds,
     getGameById,
+    getGamesByPublisherId,
+    getPublisherById,
     matchesGameQuery,
     filterGamesByQuery,
     filterGamesByCategoryAndPublisher,
+    sortGames,
 } from './games';
+import type { Game } from '../types/game';
 
 async function seedGames(db: Database, count: number): Promise<void> {
     const [strategyCategory] = await db
@@ -48,8 +52,8 @@ describe('games data-access helpers', () => {
         await seedGames(db, 3);
         const all = await getAllGames(db);
         expect(all.map((g) => g.title)).toEqual(['Game 01', 'Game 02', 'Game 03']);
-        expect(all[0].category).toEqual({ id: expect.any(Number), name: 'Strategy' });
-        expect(all[0].publisher).toEqual({ id: expect.any(Number), name: 'Pub One' });
+        expect(all[0].category).toEqual({ id: expect.any(Number), name: 'Strategy', description: 'cat' });
+        expect(all[0].publisher).toEqual({ id: expect.any(Number), name: 'Pub One', description: 'pub' });
     });
 
     it('returns all game ids ordered by title', async () => {
@@ -93,5 +97,28 @@ describe('games data-access helpers', () => {
         expect(filterGamesByCategoryAndPublisher(gamesList, [], 'Pub One')).toHaveLength(3);
         expect(filterGamesByCategoryAndPublisher(gamesList, ['Puzzle'], 'Pub One')).toHaveLength(1);
         expect(filterGamesByCategoryAndPublisher(gamesList, ['Puzzle'], 'Missing Publisher')).toHaveLength(0);
+    });
+
+    it('returns a publisher and its games with descriptions', async () => {
+        await seedGames(db, 3);
+        const publisher = await getPublisherById(db, 1);
+
+        expect(publisher).toEqual({ id: 1, name: 'Pub One', description: 'pub' });
+        const publisherGames = await getGamesByPublisherId(db, 1);
+        expect(publisherGames).toHaveLength(3);
+        expect(publisherGames[0].publisher?.description).toBe('pub');
+    });
+
+    it('sorts titles in both directions and puts unrated games last for rating order', () => {
+        const gamesList: Game[] = [
+            { id: 1, title: 'Bravo', description: '', starRating: null, category: null, publisher: null },
+            { id: 2, title: 'Alpha', description: '', starRating: 4.1, category: null, publisher: null },
+            { id: 3, title: 'Charlie', description: '', starRating: 4.8, category: null, publisher: null },
+        ];
+
+        expect(sortGames(gamesList, 'title-asc').map((game) => game.title)).toEqual(['Alpha', 'Bravo', 'Charlie']);
+        expect(sortGames(gamesList, 'title-desc').map((game) => game.title)).toEqual(['Charlie', 'Bravo', 'Alpha']);
+        expect(sortGames(gamesList, 'rating-desc').map((game) => game.title)).toEqual(['Charlie', 'Alpha', 'Bravo']);
+        expect(gamesList[0].title).toBe('Bravo');
     });
 });

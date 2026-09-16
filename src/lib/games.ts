@@ -3,6 +3,8 @@ import type { Database } from './db';
 import { games, categories, publishers } from '../../db/schema';
 import type { Game } from '../types/game';
 
+export type GameSort = 'title-asc' | 'title-desc' | 'rating-desc';
+
 const gameSelection = {
     id: games.id,
     title: games.title,
@@ -10,8 +12,10 @@ const gameSelection = {
     starRating: games.starRating,
     categoryId: categories.id,
     categoryName: categories.name,
+    categoryDescription: categories.description,
     publisherId: publishers.id,
     publisherName: publishers.name,
+    publisherDescription: publishers.description,
 };
 
 type GameSelectionRow = {
@@ -21,8 +25,10 @@ type GameSelectionRow = {
     starRating: number | null;
     categoryId: number | null;
     categoryName: string | null;
+    categoryDescription: string | null;
     publisherId: number | null;
     publisherName: string | null;
+    publisherDescription: string | null;
 };
 
 function mapGame(row: GameSelectionRow): Game {
@@ -33,11 +39,11 @@ function mapGame(row: GameSelectionRow): Game {
         starRating: row.starRating,
         category:
             row.categoryId !== null && row.categoryName !== null
-                ? { id: row.categoryId, name: row.categoryName }
+                ? { id: row.categoryId, name: row.categoryName, description: row.categoryDescription }
                 : null,
         publisher:
             row.publisherId !== null && row.publisherName !== null
-                ? { id: row.publisherId, name: row.publisherName }
+                ? { id: row.publisherId, name: row.publisherName, description: row.publisherDescription }
                 : null,
     };
 }
@@ -148,6 +154,31 @@ export function filterGamesByCategoryAndPublisher(
 }
 
 /**
+ * Sort games for catalog display.
+ *
+ * Unrated games sort after rated games for rating order, while ties and unrated
+ * games use title order to keep the result stable and predictable.
+ *
+ * @param gamesList - Games to sort.
+ * @param sort - Requested title or rating order.
+ * @returns A sorted copy of the input list.
+ */
+export function sortGames(gamesList: Game[], sort: GameSort): Game[] {
+    return [...gamesList].sort((left, right) => {
+        if (sort === 'rating-desc') {
+            if (left.starRating === null && right.starRating !== null) return 1;
+            if (left.starRating !== null && right.starRating === null) return -1;
+            if (left.starRating !== right.starRating) {
+                return (right.starRating ?? 0) - (left.starRating ?? 0);
+            }
+        }
+
+        const titleOrder = left.title.localeCompare(right.title);
+        return sort === 'title-desc' ? -titleOrder : titleOrder;
+    });
+}
+
+/**
  * Load all games with their category and publisher relationships.
  *
  * @param db - Injectable Drizzle database client.
@@ -179,4 +210,48 @@ export async function getAllGameIds(db: Database): Promise<number[]> {
 export async function getGameById(db: Database, id: number): Promise<Game | null> {
     const row = await baseGamesQuery(db).where(eq(games.id, id)).get();
     return row ? mapGame(row) : null;
+}
+
+/**
+ * Load all games belonging to a publisher, ordered by title.
+ *
+ * @param db - Injectable Drizzle database client.
+ * @param publisherId - Publisher ID to filter by.
+ * @returns Games published by the requested publisher.
+ */
+export async function getGamesByPublisherId(db: Database, publisherId: number): Promise<Game[]> {
+    const rows = await baseGamesQuery(db)
+        .where(eq(games.publisherId, publisherId))
+        .orderBy(asc(games.title));
+    return rows.map(mapGame);
+}
+
+/**
+ * Load a publisher's identity and description.
+ *
+ * @param db - Injectable Drizzle database client.
+ * @param publisherId - Publisher ID to look up.
+ * @returns Publisher summary or null when it does not exist.
+ */
+export async function getPublisherById(
+    db: Database,
+    publisherId: number,
+): Promise<{ id: number; name: string; description: string | null } | null> {
+    const publisher = await db.select({
+        id: publishers.id,
+        name: publishers.name,
+        description: publishers.description,
+    }).from(publishers).where(eq(publishers.id, publisherId)).get() ?? null;
+    return publisher;
+}
+
+/**
+ * Load all publisher IDs for static publisher routes.
+ *
+ * @param db - Injectable Drizzle database client.
+ * @returns Publisher IDs ordered by name.
+ */
+export async function getAllPublisherIds(db: Database): Promise<number[]> {
+    const rows = await db.select({ id: publishers.id }).from(publishers).orderBy(asc(publishers.name));
+    return rows.map((row) => row.id);
 }

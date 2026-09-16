@@ -20,6 +20,7 @@ const { game } = Astro.props;
     data-game-title={game.title}
     data-game-category={game.category?.name ?? ''}
     data-game-publisher={game.publisher?.name ?? ''}
+    data-game-rating={game.starRating ?? ''}
     data-game-description={game.description}
     data-search-text={`${game.title} ${game.category?.name ?? ''} ${game.publisher?.name ?? ''} ${game.description}`}
 >
