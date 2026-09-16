@@ -34,7 +34,21 @@ const publisherNames = [...new Set(games.map((game) => game.publisher?.name).fil
     </div>
 
     <div class="mb-8 rounded-xl border border-slate-700 bg-slate-800/50 p-5" data-testid="game-filters">
-      <h2 class="mb-4 text-lg font-medium text-slate-100">Filter games</h2>
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
+        <h2 class="text-lg font-medium text-slate-100">Filter games</h2>
+        <div>
+          <label for="game-sort" class="mr-2 text-sm font-medium text-slate-200">Sort games</label>
+          <select
+            id="game-sort"
+            class="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            data-testid="game-sort"
+          >
+            <option value="title-asc">Title: A-Z</option>
+            <option value="title-desc">Title: Z-A</option>
+            <option value="rating-desc">Rating: highest first</option>
+          </select>
+        </div>
+      </div>
       <div class="grid gap-5 md:grid-cols-[2fr_1fr]">
         <fieldset>
           <legend class="mb-2 text-sm font-medium text-slate-200">Categories</legend>
@@ -93,8 +107,10 @@ const publisherNames = [...new Set(games.map((game) => game.publisher?.name).fil
   const emptyState = document.getElementById('game-search-empty-state') as HTMLElement | null;
   const filterSummary = document.getElementById('game-filter-summary') as HTMLParagraphElement | null;
   const publisherFilter = document.getElementById('publisher-filter') as HTMLSelectElement | null;
+  const sortSelect = document.getElementById('game-sort') as HTMLSelectElement | null;
   const categoryFilters = Array.from(document.querySelectorAll<HTMLInputElement>('[data-testid^="category-filter-"]'));
-  const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-testid="game-card"]'));
+  const cardsContainer = document.querySelector<HTMLElement>('[data-testid="games-grid"]');
+  const cards = cardsContainer ? Array.from(cardsContainer.querySelectorAll<HTMLElement>('[data-testid="game-card"]')) : [];
 
   function normalizeSearchText(value: string): string {
     return String(value ?? '')
@@ -151,9 +167,24 @@ const publisherNames = [...new Set(games.map((game) => game.publisher?.name).fil
     const query = searchInput ? searchInput.value : '';
     const selectedCategories = categoryFilters.filter((filter) => filter.checked).map((filter) => filter.value);
     const selectedPublisher = publisherFilter?.value ?? '';
+    const sort = sortSelect?.value ?? 'title-asc';
     let visibleCount = 0;
 
-    cards.forEach((card) => {
+    const sortedCards = [...cards].sort((left, right) => {
+      if (sort === 'rating-desc') {
+        const leftRating = left.dataset.gameRating ? Number(left.dataset.gameRating) : null;
+        const rightRating = right.dataset.gameRating ? Number(right.dataset.gameRating) : null;
+        if (leftRating === null && rightRating !== null) return 1;
+        if (leftRating !== null && rightRating === null) return -1;
+        if (leftRating !== rightRating) return (rightRating ?? 0) - (leftRating ?? 0);
+      }
+      const titleOrder = (left.dataset.gameTitle ?? '').localeCompare(right.dataset.gameTitle ?? '');
+      return sort === 'title-desc' ? -titleOrder : titleOrder;
+    });
+
+    sortedCards.forEach((card) => cardsContainer?.appendChild(card));
+
+    sortedCards.forEach((card) => {
       const matchesSearch = matchesQuery(query, card.getAttribute('data-search-text') ?? '');
       const category = card.getAttribute('data-game-category') ?? '';
       const publisher = card.getAttribute('data-game-publisher') ?? '';
@@ -194,5 +225,6 @@ const publisherNames = [...new Set(games.map((game) => game.publisher?.name).fil
   }
   categoryFilters.forEach((filter) => filter.addEventListener('change', updateGameList));
   publisherFilter?.addEventListener('change', updateGameList);
+  sortSelect?.addEventListener('change', updateGameList);
   updateGameList();
 </script>

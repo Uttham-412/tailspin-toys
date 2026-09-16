@@ -43,7 +43,7 @@ if (!game) {
           )}
           {game.publisher && (
             <Tag color="purple" data-testid="game-details-publisher">
-              {game.publisher.name}
+              <a href={`/publisher/${game.publisher.id}`} class="hover:underline">{game.publisher.name}</a>
             </Tag>
           )}
         </div>
@@ -54,6 +54,23 @@ if (!game) {
             <p data-testid="game-details-description">{game.description}</p>
           </div>
         </div>
+
+        {(game.category?.description || game.publisher?.description) && (
+          <div class="mt-8 grid gap-4 sm:grid-cols-2" data-testid="game-details-context">
+            {game.category?.description && (
+              <section class="rounded-lg border border-slate-700 bg-slate-800/50 p-4" data-testid="game-category-description">
+                <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-300">About the category</h2>
+                <p class="text-slate-400">{game.category.description}</p>
+              </section>
+            )}
+            {game.publisher?.description && (
+              <section class="rounded-lg border border-slate-700 bg-slate-800/50 p-4" data-testid="game-publisher-description">
+                <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-300">About the publisher</h2>
+                <p class="text-slate-400">{game.publisher.description}</p>
+              </section>
+            )}
+          </div>
+        )}
 
         <div class="mt-8">
           <Button variant="gradient" fullWidth data-testid="back-game-button">
