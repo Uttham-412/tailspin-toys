@@ -42,7 +42,7 @@ const games = await getAllGames(getDatabase());
             {games.map((game) => <GameCard game={game} />)}
           </div>
 
-          <div id="game-search-empty-state" class="hidden" data-testid="game-search-empty-state" role="status" aria-live="polite">
+          <div id="game-search-empty-state" data-testid="game-search-empty-state" role="status" aria-live="polite" hidden>
             <EmptyState text="No games match your search. Try a different title, genre, or publisher." />
           </div>
         </>
